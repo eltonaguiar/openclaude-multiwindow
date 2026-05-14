@@ -1156,7 +1156,7 @@ class OpenClaudeControlCenterProvider {
           await vscode.commands.executeCommand('openclaude.validateModelsDeep');
           return;
         case 'disableProvider':
-          if (message && message.modelId) {
+          if (message && message.modelId && modelVettingStore) {
             modelVettingStore.disable(message.modelId);
             await vscode.window.showInformationMessage(`Disabled ${message.modelId}. Run "Validate Models" to re-check.`);
           }
