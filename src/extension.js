@@ -1633,4 +1633,6 @@ module.exports = {
   ChatController,
   OpenClaudeChatViewProvider,
   OpenClaudeChatPanelManager,
+  // Testing-only: allows webview handler tests to inject a mock ModelVettingStore
+  __injectModelVettingStore: (store) => { modelVettingStore = store; },
 };

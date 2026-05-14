@@ -285,6 +285,9 @@ test('renderControlCenterHtml includes Provider Health HTML elements for dynamic
 
 
 // ──────────────────────────────────────────────
+
+// ──────────────────────────────────────────────
+
 // ModelVettingStore unit tests
 // ──────────────────────────────────────────────
 
@@ -807,3 +810,188 @@ test('ModelValidator validateAll calls onProgress callback', async () => {
   assert.equal(progressCalls[0].done, 1);
   assert.equal(progressCalls[0].total, 1);
 });
+
+
+
+
+// ──────────────────────────────────────────────
+// Webview Message Handler Tests
+// ──────────────────────────────────────────────
+
+/**
+ * Like loadExtension() but with spies on executeCommand and showInformationMessage.
+ * Does NOT call activate() — the webview handlers for runFreeCheck/runDeepCheck
+ * return early before refresh(), so modelVettingStore is not needed.
+ */
+function loadExtensionWithSpies() {
+  const extensionPath = require.resolve('./extension');
+  delete require.cache[extensionPath];
+
+  const executeCommandCalls = [];
+  const showInfoCalls = [];
+
+  mock.module('vscode', () => ({
+    workspace: {
+      workspaceFolders: [],
+      getConfiguration: () => ({
+        get: (_key, fallback) => fallback,
+      }),
+      getWorkspaceFolder: () => null,
+    },
+    window: {
+      activeTextEditor: null,
+      createWebviewPanel: () => ({}),
+      registerWebviewViewProvider: () => ({ dispose() {} }),
+      showInformationMessage: async (msg) => {
+        showInfoCalls.push(msg);
+        return undefined;
+      },
+      showErrorMessage: async () => undefined,
+    },
+    env: {
+      openExternal: async () => true,
+    },
+    commands: {
+      registerCommand: () => ({ dispose() {} }),
+      executeCommand: async (cmd, ...args) => {
+        executeCommandCalls.push({ cmd, args });
+      },
+    },
+    Uri: { parse: value => value, file: value => value },
+    ViewColumn: { Active: 1 },
+  }));
+
+  const ext = require('./extension');
+  return { ...ext, executeCommandCalls, showInfoCalls };
+}
+
+/**
+ * Sets up a webview message handler by resolving a mock webviewView
+ * on the given provider. Returns the captured message handler callback.
+ * Also stubs refresh() to avoid needing modelVettingStore.
+ */
+function setupWebviewHandler(provider) {
+  let messageHandler = null;
+
+  // Stub refresh() BEFORE resolveWebviewView — it calls refresh() internally
+  provider.refresh = async () => {};
+
+  const mockWebviewView = {
+    webview: {
+      options: {},
+      onDidReceiveMessage: (cb) => { messageHandler = cb; },
+      postMessage: () => {},
+      asWebviewUri: (uri) => uri,
+    },
+    onDidDispose: () => {},
+  };
+
+  provider.resolveWebviewView(mockWebviewView);
+
+  assert.ok(messageHandler, 'message handler should be registered');
+  return messageHandler;
+}
+
+test('webview runFreeCheck handler delegates to openclaude.validateModels command', async () => {
+  const { OpenClaudeControlCenterProvider, executeCommandCalls } = loadExtensionWithSpies();
+  const provider = new OpenClaudeControlCenterProvider();
+  const handler = setupWebviewHandler(provider);
+
+  executeCommandCalls.length = 0;
+  await handler({ type: 'runFreeCheck' });
+
+  assert.equal(executeCommandCalls.length, 1, 'should call executeCommand once');
+  assert.equal(executeCommandCalls[0].cmd, 'openclaude.validateModels',
+    'should delegate to validateModels command');
+});
+
+test('webview runDeepCheck handler delegates to openclaude.validateModelsDeep command', async () => {
+  const { OpenClaudeControlCenterProvider, executeCommandCalls } = loadExtensionWithSpies();
+  const provider = new OpenClaudeControlCenterProvider();
+  const handler = setupWebviewHandler(provider);
+
+  executeCommandCalls.length = 0;
+  await handler({ type: 'runDeepCheck' });
+
+  assert.equal(executeCommandCalls.length, 1, 'should call executeCommand once');
+  assert.equal(executeCommandCalls[0].cmd, 'openclaude.validateModelsDeep',
+    'should delegate to validateModelsDeep command');
+});
+
+test('webview disableProvider handler calls modelVettingStore.disable and shows info message', async () => {
+  const { OpenClaudeControlCenterProvider, executeCommandCalls, showInfoCalls, __injectModelVettingStore } = loadExtensionWithSpies();
+
+  // Create a mock ModelVettingStore with a spy on disable()
+  const disableCalls = [];
+  const mockStore = {
+    disable(modelId) { disableCalls.push(modelId); },
+    getVettedModels() { return []; },
+    getBrokenModels() { return []; },
+    getDisabledModels() { return ['test-model-123']; },
+    getModelStatus() { return 'unknown'; },
+    getLastValidationResults() { return []; },
+    getLastValidationTime() { return null; },
+    exportConfig() { return '{}'; },
+    getFilteredCatalog(c) { return c; },
+  };
+
+  // Inject the mock store so the disableProvider handler can use it
+  __injectModelVettingStore(mockStore);
+
+  const provider = new OpenClaudeControlCenterProvider();
+  const handler = setupWebviewHandler(provider);
+
+  showInfoCalls.length = 0;
+
+  // Send disableProvider with a valid modelId
+  await handler({ type: 'disableProvider', modelId: 'test-model-123' });
+
+  assert.equal(disableCalls.length, 1, 'should call disable once');
+  assert.equal(disableCalls[0], 'test-model-123', 'should disable the correct model');
+  assert.equal(showInfoCalls.length, 1, 'should show info message');
+  assert.ok(showInfoCalls[0].includes('test-model-123'),
+    'info message should mention the disabled model');
+  assert.ok(showInfoCalls[0].includes('Validate Models'),
+    'info message should suggest re-validation');
+});
+
+test('webview disableProvider handler gracefully handles missing modelId and null messages', async () => {
+  const { OpenClaudeControlCenterProvider, executeCommandCalls, showInfoCalls, __injectModelVettingStore } = loadExtensionWithSpies();
+
+  // Inject a mock store that tracks disable calls
+  const disableCalls = [];
+  __injectModelVettingStore({
+    disable(modelId) { disableCalls.push(modelId); },
+    getVettedModels() { return []; },
+    getBrokenModels() { return []; },
+    getDisabledModels() { return []; },
+    getModelStatus() { return 'unknown'; },
+    getLastValidationResults() { return []; },
+    getLastValidationTime() { return null; },
+    exportConfig() { return '{}'; },
+    getFilteredCatalog(c) { return c; },
+  });
+
+  const provider = new OpenClaudeControlCenterProvider();
+  const handler = setupWebviewHandler(provider);
+
+  // Test with no modelId in message
+  disableCalls.length = 0;
+  showInfoCalls.length = 0;
+  await handler({ type: 'disableProvider' });
+  assert.equal(disableCalls.length, 0,
+    'should NOT call disable when modelId is missing');
+
+  // Test with null message (outer switch uses message?.type, falls to default)
+  disableCalls.length = 0;
+  await handler(null);
+  assert.equal(disableCalls.length, 0,
+    'should NOT crash on null message');
+
+  // Test with undefined message
+  disableCalls.length = 0;
+  await handler(undefined);
+  assert.equal(disableCalls.length, 0,
+    'should NOT crash on undefined message');
+});
+
