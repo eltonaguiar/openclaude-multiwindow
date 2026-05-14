@@ -1,6 +1,7 @@
 # OpenClaude Multi-Window
 
 VS Code extension forked from [`Gitlawb/openclaude`](https://github.com/Gitlawb/openclaude/tree/main/vscode-extension/openclaude-vscode) that adds **multiple chat tabs** to the OpenClaude sidebar — each tab runs its own `openclaude` CLI subprocess with its own model.
+<img width="691" height="1423" alt="image" src="https://github.com/user-attachments/assets/570505da-876f-43e1-93d0-a3217343af44" />
 
 ## Features
 
