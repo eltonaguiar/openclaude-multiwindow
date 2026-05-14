@@ -1110,6 +1110,10 @@ function renderControlCenterHtml(status, options = {}) {
 </html>`;
 }
 
+// Module-level references set by activate() — used by OpenClaudeControlCenterProvider
+let modelVettingStore = null;
+let providerCatalog = null;
+
 class OpenClaudeControlCenterProvider {
   constructor() {
     this.webviewView = null;
@@ -1459,8 +1463,8 @@ function activate(context) {
   });
 
   // ── Model vetting & provider validation ──
-  const providerCatalog = require('./chat/providerCatalog.json');
-  const modelVettingStore = new ModelVettingStore(context);
+  providerCatalog = require('./chat/providerCatalog.json');
+  modelVettingStore = new ModelVettingStore(context);
   const modelValidator = new ModelValidator(providerCatalog);
 
   const validateModelsCommand = vscode.commands.registerCommand('openclaude.validateModels', async () => {
