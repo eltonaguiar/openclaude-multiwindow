@@ -1,0 +1,702 @@
+[
+  {
+    "id": "atomic-chat",
+    "label": "atomic-chat",
+    "baseUrl": "http://127.0.0.1:1337/v1",
+    "defaultModel": "local-model",
+    "models": []
+  },
+  {
+    "id": "azure-openai",
+    "label": "azure-openai",
+    "baseUrl": "https://YOUR-RESOURCE-NAME.openai.azure.com/openai/v1",
+    "defaultModel": "YOUR-DEPLOYMENT-NAME",
+    "models": [
+      {
+        "id": "YOUR-DEPLOYMENT-NAME",
+        "label": "Azure Deployment"
+      }
+    ]
+  },
+  {
+    "id": "bedrock",
+    "label": "bedrock",
+    "baseUrl": null,
+    "defaultModel": null,
+    "models": [
+      {
+        "id": "us.anthropic.claude-opus-4-6-v1",
+        "label": "Claude Opus (Bedrock)"
+      }
+    ]
+  },
+  {
+    "id": "custom",
+    "label": "Custom OpenAI-compatible",
+    "baseUrl": null,
+    "defaultModel": "llama3.1:8b",
+    "models": []
+  },
+  {
+    "id": "dashscope-cn",
+    "label": "dashscope-cn",
+    "baseUrl": "https://coding.dashscope.aliyuncs.com/v1",
+    "defaultModel": "qwen3.6-plus",
+    "models": [
+      {
+        "id": "qwen3.6-plus",
+        "label": "Qwen 3.6 Plus"
+      }
+    ]
+  },
+  {
+    "id": "dashscope-intl",
+    "label": "dashscope-intl",
+    "baseUrl": "https://coding-intl.dashscope.aliyuncs.com/v1",
+    "defaultModel": "qwen3.6-plus",
+    "models": [
+      {
+        "id": "qwen3.6-plus",
+        "label": "Qwen 3.6 Plus"
+      }
+    ]
+  },
+  {
+    "id": "github",
+    "label": "github",
+    "baseUrl": "https://api.githubcopilot.com",
+    "defaultModel": null,
+    "models": [
+      {
+        "id": "claude-sonnet-4-6",
+        "label": "Claude Sonnet (GitHub)"
+      },
+      {
+        "id": "gpt-4o",
+        "label": "GPT-4o (GitHub)"
+      }
+    ]
+  },
+  {
+    "id": "groq",
+    "label": "groq",
+    "baseUrl": "https://api.groq.com/openai/v1",
+    "defaultModel": "llama-3.3-70b-versatile",
+    "models": [
+      {
+        "id": "llama-3.3-70b-versatile",
+        "label": "Llama 3.3 70B"
+      }
+    ]
+  },
+  {
+    "id": "hicap",
+    "label": "api-key",
+    "baseUrl": "https://api.hicap.ai/v1",
+    "defaultModel": "claude-opus-4.7",
+    "models": [
+      {
+        "id": "claude-opus-4.7",
+        "label": "Claude Opus 4.7"
+      }
+    ]
+  },
+  {
+    "id": "kimi-code",
+    "label": "kimi-code",
+    "baseUrl": "https://api.kimi.com/coding/v1",
+    "defaultModel": "kimi-for-coding",
+    "models": [
+      {
+        "id": "kimi-for-coding",
+        "label": "Kimi for Coding"
+      }
+    ]
+  },
+  {
+    "id": "lmstudio",
+    "label": "lmstudio",
+    "baseUrl": "http://localhost:1234/v1",
+    "defaultModel": "local-model",
+    "models": []
+  },
+  {
+    "id": "mistral",
+    "label": "mistral",
+    "baseUrl": "https://api.mistral.ai/v1",
+    "defaultModel": "devstral-latest",
+    "models": [
+      {
+        "id": "devstral-latest",
+        "label": "Devstral Latest"
+      }
+    ]
+  },
+  {
+    "id": "nvidia-nim",
+    "label": "nvidia-nim",
+    "baseUrl": "https://integrate.api.nvidia.com/v1",
+    "defaultModel": "nvidia/llama-3.1-nemotron-70b-instruct",
+    "models": [
+      {
+        "id": "nvidia/llama-3.1-nemotron-70b-instruct",
+        "label": "Llama 3.1 Nemotron 70B"
+      }
+    ]
+  },
+  {
+    "id": "ollama",
+    "label": "ollama",
+    "baseUrl": "http://localhost:11434/v1",
+    "defaultModel": "llama3.1:8b",
+    "models": []
+  },
+  {
+    "id": "openrouter",
+    "label": "openrouter",
+    "baseUrl": "https://openrouter.ai/api/v1",
+    "defaultModel": "openai/gpt-5-mini",
+    "models": [
+      {
+        "id": "openai/gpt-5-mini",
+        "label": "GPT-5 Mini (via OpenRouter)"
+      }
+    ]
+  },
+  {
+    "id": "together",
+    "label": "together",
+    "baseUrl": "https://api.together.xyz/v1",
+    "defaultModel": "Qwen/Qwen3.5-9B",
+    "models": [
+      {
+        "id": "Qwen/Qwen3.5-9B",
+        "label": "Qwen 3.5 9B"
+      }
+    ]
+  },
+  {
+    "id": "vertex",
+    "label": "vertex",
+    "baseUrl": null,
+    "defaultModel": null,
+    "models": [
+      {
+        "id": "claude-opus-4-6",
+        "label": "Claude Opus (Vertex)"
+      }
+    ]
+  },
+  {
+    "id": "anthropic-direct",
+    "label": "Anthropic (direct)",
+    "baseUrl": null,
+    "defaultModel": "claude-sonnet-4-6",
+    "models": [
+      {
+        "id": "claude-sonnet-4-6",
+        "label": "claude-sonnet-4-6"
+      },
+      {
+        "id": "claude-opus-4-6",
+        "label": "claude-opus-4-6"
+      },
+      {
+        "id": "claude-haiku-4-5",
+        "label": "claude-haiku-4-5"
+      }
+    ]
+  },
+  {
+    "id": "openai-direct",
+    "label": "OpenAI (direct)",
+    "baseUrl": null,
+    "defaultModel": "gpt-5.5",
+    "models": [
+      {
+        "id": "gpt-5.5",
+        "label": "gpt-5.5"
+      },
+      {
+        "id": "gpt-5.5-mini",
+        "label": "gpt-5.5-mini"
+      },
+      {
+        "id": "gpt-5.5-nano",
+        "label": "gpt-5.5-nano"
+      },
+      {
+        "id": "gpt-5.4",
+        "label": "gpt-5.4"
+      },
+      {
+        "id": "gpt-5.4-mini",
+        "label": "gpt-5.4-mini"
+      },
+      {
+        "id": "gpt-5.4-nano",
+        "label": "gpt-5.4-nano"
+      },
+      {
+        "id": "gpt-5-mini",
+        "label": "gpt-5-mini"
+      },
+      {
+        "id": "gpt-4.1",
+        "label": "gpt-4.1"
+      },
+      {
+        "id": "gpt-4.1-mini",
+        "label": "gpt-4.1-mini"
+      },
+      {
+        "id": "gpt-4.1-nano",
+        "label": "gpt-4.1-nano"
+      },
+      {
+        "id": "gpt-4o",
+        "label": "gpt-4o"
+      },
+      {
+        "id": "gpt-4o-mini",
+        "label": "gpt-4o-mini"
+      },
+      {
+        "id": "gpt-4-turbo",
+        "label": "gpt-4-turbo"
+      },
+      {
+        "id": "gpt-4",
+        "label": "gpt-4"
+      },
+      {
+        "id": "o1-preview",
+        "label": "o1-preview"
+      },
+      {
+        "id": "o1-mini",
+        "label": "o1-mini"
+      },
+      {
+        "id": "o1-pro",
+        "label": "o1-pro"
+      },
+      {
+        "id": "o1",
+        "label": "o1"
+      },
+      {
+        "id": "o3-mini",
+        "label": "o3-mini"
+      },
+      {
+        "id": "o3",
+        "label": "o3"
+      },
+      {
+        "id": "o4-mini",
+        "label": "o4-mini"
+      }
+    ]
+  },
+  {
+    "id": "google-direct",
+    "label": "Google Gemini (direct)",
+    "baseUrl": null,
+    "defaultModel": "gemini-3.1-flash-lite-preview",
+    "models": [
+      {
+        "id": "gemini-3.1-flash-lite-preview",
+        "label": "gemini-3.1-flash-lite-preview"
+      },
+      {
+        "id": "gemini-3.1-pro",
+        "label": "gemini-3.1-pro"
+      },
+      {
+        "id": "gemini-2.5-flash",
+        "label": "gemini-2.5-flash"
+      },
+      {
+        "id": "gemini-2.5-pro",
+        "label": "gemini-2.5-pro"
+      },
+      {
+        "id": "gemini-2.0-flash",
+        "label": "gemini-2.0-flash"
+      },
+      {
+        "id": "google/gemini-2.5-pro",
+        "label": "google/gemini-2.5-pro"
+      },
+      {
+        "id": "google/gemini-2.0-flash",
+        "label": "google/gemini-2.0-flash"
+      }
+    ]
+  },
+  {
+    "id": "deepseek-direct",
+    "label": "DeepSeek (direct)",
+    "baseUrl": null,
+    "defaultModel": "deepseek-chat",
+    "models": [
+      {
+        "id": "deepseek-chat",
+        "label": "deepseek-chat"
+      },
+      {
+        "id": "deepseek-reasoner",
+        "label": "deepseek-reasoner"
+      },
+      {
+        "id": "deepseek-v4-flash",
+        "label": "deepseek-v4-flash"
+      },
+      {
+        "id": "deepseek-v4-pro",
+        "label": "deepseek-v4-pro"
+      }
+    ]
+  },
+  {
+    "id": "glm-direct",
+    "label": "GLM / Zhipu",
+    "baseUrl": null,
+    "defaultModel": "GLM-5.1",
+    "models": [
+      {
+        "id": "GLM-5.1",
+        "label": "GLM-5.1"
+      },
+      {
+        "id": "GLM-5-Turbo",
+        "label": "GLM-5-Turbo"
+      },
+      {
+        "id": "GLM-5",
+        "label": "GLM-5"
+      },
+      {
+        "id": "GLM-4.7",
+        "label": "GLM-4.7"
+      },
+      {
+        "id": "GLM-4.5-Air",
+        "label": "GLM-4.5-Air"
+      },
+      {
+        "id": "glm-5.1",
+        "label": "glm-5.1"
+      },
+      {
+        "id": "glm-5-turbo",
+        "label": "glm-5-turbo"
+      },
+      {
+        "id": "glm-5",
+        "label": "glm-5"
+      },
+      {
+        "id": "glm-4.7",
+        "label": "glm-4.7"
+      },
+      {
+        "id": "glm-4.5-air",
+        "label": "glm-4.5-air"
+      }
+    ]
+  },
+  {
+    "id": "kimi-direct",
+    "label": "Moonshot Kimi (direct)",
+    "baseUrl": null,
+    "defaultModel": "kimi-for-coding",
+    "models": [
+      {
+        "id": "kimi-for-coding",
+        "label": "kimi-for-coding"
+      },
+      {
+        "id": "kimi-k2.6",
+        "label": "kimi-k2.6"
+      },
+      {
+        "id": "kimi-k2.5",
+        "label": "kimi-k2.5"
+      },
+      {
+        "id": "kimi-k2-thinking",
+        "label": "kimi-k2-thinking"
+      },
+      {
+        "id": "kimi-k2-instruct",
+        "label": "kimi-k2-instruct"
+      },
+      {
+        "id": "kimi-k2",
+        "label": "kimi-k2"
+      },
+      {
+        "id": "moonshot-v1-128k",
+        "label": "moonshot-v1-128k"
+      },
+      {
+        "id": "moonshot-v1-32k",
+        "label": "moonshot-v1-32k"
+      },
+      {
+        "id": "moonshot-v1-8k",
+        "label": "moonshot-v1-8k"
+      }
+    ]
+  },
+  {
+    "id": "llama-direct",
+    "label": "Llama (Meta)",
+    "baseUrl": null,
+    "defaultModel": "llama-3.3-70b-versatile",
+    "models": [
+      {
+        "id": "llama-3.3-70b-versatile",
+        "label": "llama-3.3-70b-versatile"
+      },
+      {
+        "id": "llama-3.3-70b",
+        "label": "llama-3.3-70b"
+      },
+      {
+        "id": "llama-3.1-8b-instant",
+        "label": "llama-3.1-8b-instant"
+      },
+      {
+        "id": "llama-3.1-8b",
+        "label": "llama-3.1-8b"
+      },
+      {
+        "id": "llama3.3:70b",
+        "label": "llama3.3:70b"
+      },
+      {
+        "id": "llama3.2:3b",
+        "label": "llama3.2:3b"
+      },
+      {
+        "id": "llama3.2:1b",
+        "label": "llama3.2:1b"
+      },
+      {
+        "id": "llama3.1:8b",
+        "label": "llama3.1:8b"
+      },
+      {
+        "id": "meta/llama-3.1-405b-instruct",
+        "label": "meta/llama-3.1-405b-instruct"
+      },
+      {
+        "id": "meta/llama-3.1-70b-instruct",
+        "label": "meta/llama-3.1-70b-instruct"
+      },
+      {
+        "id": "meta/llama-3.1-8b-instruct",
+        "label": "meta/llama-3.1-8b-instruct"
+      },
+      {
+        "id": "meta/llama-3.2-90b-instruct",
+        "label": "meta/llama-3.2-90b-instruct"
+      },
+      {
+        "id": "meta/llama-3.2-3b-instruct",
+        "label": "meta/llama-3.2-3b-instruct"
+      },
+      {
+        "id": "meta/llama-3.2-1b-instruct",
+        "label": "meta/llama-3.2-1b-instruct"
+      },
+      {
+        "id": "meta/llama-3.3-70b-instruct",
+        "label": "meta/llama-3.3-70b-instruct"
+      }
+    ]
+  },
+  {
+    "id": "mistral-direct",
+    "label": "Mistral (direct)",
+    "baseUrl": null,
+    "defaultModel": "mistral-large-latest",
+    "models": [
+      {
+        "id": "mistral-large-latest",
+        "label": "mistral-large-latest"
+      },
+      {
+        "id": "mistral-small-latest",
+        "label": "mistral-small-latest"
+      },
+      {
+        "id": "devstral-latest",
+        "label": "devstral-latest"
+      },
+      {
+        "id": "ministral-3b-latest",
+        "label": "ministral-3b-latest"
+      },
+      {
+        "id": "mixtral-8x7b-32768",
+        "label": "mixtral-8x7b-32768"
+      },
+      {
+        "id": "codestral",
+        "label": "codestral"
+      },
+      {
+        "id": "mistral:7b",
+        "label": "mistral:7b"
+      }
+    ]
+  },
+  {
+    "id": "qwen-direct",
+    "label": "Qwen",
+    "baseUrl": null,
+    "defaultModel": "qwen3.6-plus",
+    "models": [
+      {
+        "id": "qwen3.6-plus",
+        "label": "qwen3.6-plus"
+      },
+      {
+        "id": "qwen3.5-plus",
+        "label": "qwen3.5-plus"
+      },
+      {
+        "id": "qwen3-coder-plus",
+        "label": "qwen3-coder-plus"
+      },
+      {
+        "id": "qwen3-coder-next",
+        "label": "qwen3-coder-next"
+      },
+      {
+        "id": "qwen3-max",
+        "label": "qwen3-max"
+      },
+      {
+        "id": "Qwen/Qwen3.5-9B",
+        "label": "Qwen/Qwen3.5-9B"
+      }
+    ]
+  },
+  {
+    "id": "xai-direct",
+    "label": "xAI Grok",
+    "baseUrl": null,
+    "defaultModel": "grok-4.3",
+    "models": [
+      {
+        "id": "grok-4.3",
+        "label": "grok-4.3"
+      },
+      {
+        "id": "grok-4",
+        "label": "grok-4"
+      },
+      {
+        "id": "grok-3",
+        "label": "grok-3"
+      }
+    ]
+  },
+  {
+    "id": "minimax",
+    "label": "MiniMax",
+    "baseUrl": null,
+    "defaultModel": "minimax-m2",
+    "models": [
+      {
+        "id": "minimax-m2",
+        "label": "minimax-m2"
+      },
+      {
+        "id": "minimax-m2.1",
+        "label": "minimax-m2.1"
+      },
+      {
+        "id": "minimax-m2.1-highspeed",
+        "label": "minimax-m2.1-highspeed"
+      },
+      {
+        "id": "minimax-m2.5",
+        "label": "minimax-m2.5"
+      },
+      {
+        "id": "minimax-m2.5-highspeed",
+        "label": "minimax-m2.5-highspeed"
+      },
+      {
+        "id": "minimax-m2.7",
+        "label": "minimax-m2.7"
+      },
+      {
+        "id": "minimax-m2.7-highspeed",
+        "label": "minimax-m2.7-highspeed"
+      },
+      {
+        "id": "minimax-text-01",
+        "label": "minimax-text-01"
+      },
+      {
+        "id": "minimax-text-01-preview",
+        "label": "minimax-text-01-preview"
+      },
+      {
+        "id": "minimax-vision-01",
+        "label": "minimax-vision-01"
+      },
+      {
+        "id": "minimax-vision-01-fast",
+        "label": "minimax-vision-01-fast"
+      }
+    ]
+  },
+  {
+    "id": "nemotron",
+    "label": "NVIDIA Nemotron",
+    "baseUrl": null,
+    "defaultModel": "nvidia/llama-3.1-nemotron-70b-instruct",
+    "models": [
+      {
+        "id": "nvidia/llama-3.1-nemotron-70b-instruct",
+        "label": "nvidia/llama-3.1-nemotron-70b-instruct"
+      }
+    ]
+  },
+  {
+    "id": "xiaomi-mimo",
+    "label": "Xiaomi MiMo",
+    "baseUrl": null,
+    "defaultModel": "mimo-v2.5-pro",
+    "models": [
+      {
+        "id": "mimo-v2.5-pro",
+        "label": "mimo-v2.5-pro"
+      },
+      {
+        "id": "mimo-v2-pro",
+        "label": "mimo-v2-pro"
+      },
+      {
+        "id": "mimo-v2.5",
+        "label": "mimo-v2.5"
+      },
+      {
+        "id": "mimo-v2-omni",
+        "label": "mimo-v2-omni"
+      },
+      {
+        "id": "mimo-v2-flash",
+        "label": "mimo-v2-flash"
+      }
+    ]
+  }
+]

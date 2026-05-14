@@ -1,0 +1,199 @@
+{
+  "name": "openclaude-multiwindow",
+  "displayName": "OpenClaude Multi-Window",
+  "description": "OpenClaude with multi-chat command centre — multiple chats simultaneously, each with its own model, tabbed in the sidebar with open-in-new-tab support.",
+  "version": "0.4.0",
+  "publisher": "devnull-bootloader",
+  "engines": {
+    "vscode": "^1.95.0"
+  },
+  "categories": [
+    "Themes",
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished",
+    "onCommand:openclaude.start",
+    "onCommand:openclaude.startInWorkspaceRoot",
+    "onCommand:openclaude.openDocs",
+    "onCommand:openclaude.openSetupDocs",
+    "onCommand:openclaude.openWorkspaceProfile",
+    "onCommand:openclaude.openControlCenter",
+    "onCommand:openclaude.newChat",
+    "onCommand:openclaude.openChat",
+    "onCommand:openclaude.openChatInNewTab",
+    "onCommand:openclaude.resumeSession",
+    "onCommand:openclaude.abortChat",
+    "onView:openclaude.controlCenter",
+    "onView:openclaude.chat"
+  ],
+  "main": "./src/extension.js",
+  "files": [
+    "README.md",
+    "media/**",
+    "scripts/mock-openclaude.cjs",
+    "src/extension.js",
+    "src/presentation.js",
+    "src/state.js",
+    "src/chat/**",
+    "src/chat/providerCatalog.json",
+    "themes/**"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "openclaude.start",
+        "title": "OpenClaude: Launch in Terminal",
+        "category": "OpenClaude"
+      },
+      {
+        "command": "openclaude.startInWorkspaceRoot",
+        "title": "OpenClaude: Launch in Workspace Root",
+        "category": "OpenClaude"
+      },
+      {
+        "command": "openclaude.openDocs",
+        "title": "OpenClaude: Open Repository",
+        "category": "OpenClaude"
+      },
+      {
+        "command": "openclaude.openSetupDocs",
+        "title": "OpenClaude: Open Setup Guide",
+        "category": "OpenClaude"
+      },
+      {
+        "command": "openclaude.openWorkspaceProfile",
+        "title": "OpenClaude: Open Workspace Profile",
+        "category": "OpenClaude"
+      },
+      {
+        "command": "openclaude.openControlCenter",
+        "title": "OpenClaude: Open Control Center",
+        "category": "OpenClaude"
+      },
+      {
+        "command": "openclaude.newChat",
+        "title": "OpenClaude: New Chat",
+        "category": "OpenClaude"
+      },
+      {
+        "command": "openclaude.openChat",
+        "title": "OpenClaude: Open Active Chat in Editor Tab",
+        "category": "OpenClaude"
+      },
+      {
+        "command": "openclaude.openChatInNewTab",
+        "title": "OpenClaude: Open Chat in New Editor Tab…",
+        "category": "OpenClaude"
+      },
+      {
+        "command": "openclaude.resumeSession",
+        "title": "OpenClaude: Resume Session",
+        "category": "OpenClaude"
+      },
+      {
+        "command": "openclaude.abortChat",
+        "title": "OpenClaude: Abort Generation",
+        "category": "OpenClaude"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "openclaude",
+          "title": "OpenClaude",
+          "icon": "media/openclaude.svg"
+        }
+      ]
+    },
+    "views": {
+      "openclaude": [
+        {
+          "id": "openclaude.chat",
+          "name": "Chat",
+          "type": "webview"
+        },
+        {
+          "id": "openclaude.controlCenter",
+          "name": "Control Center",
+          "type": "webview"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "openclaude.openChat",
+        "key": "ctrl+shift+l",
+        "mac": "cmd+shift+l"
+      }
+    ],
+    "configuration": {
+      "title": "OpenClaude",
+      "properties": {
+        "openclaude.launchCommand": {
+          "type": "string",
+          "default": "openclaude",
+          "description": "Command run in the integrated terminal when launching OpenClaude."
+        },
+        "openclaude.terminalName": {
+          "type": "string",
+          "default": "OpenClaude",
+          "description": "Integrated terminal tab name for OpenClaude sessions."
+        },
+        "openclaude.useOpenAIShim": {
+          "type": "boolean",
+          "default": false,
+          "description": "Optionally set CLAUDE_CODE_USE_OPENAI=1 in launched OpenClaude terminals."
+        },
+        "openclaude.modelCatalogExtras": {
+          "type": "array",
+          "default": [],
+          "description": "Extra providers/models to add to the per-tab model picker. Each entry: { id, label, baseUrl?, defaultModel?, models: [{id, label}] }. Merged after the bundled catalog (30 providers / 116 models extracted from upstream openclaude gateways + brands).",
+          "items": { "type": "object" }
+        },
+        "openclaude.modelContextOverrides": {
+          "type": "object",
+          "default": {},
+          "description": "Per-model context-window overrides (in tokens) for unknown models. Silences the '[context] Warning: model … not in context window table' message and tells the CLI what window to use. Example: { \"grok-4-1-fast-non-reasoning\": 131072, \"my-local-llama\": 32768 }. Exposed to the CLI subprocess via env vars OPENCLAUDE_MODEL_CONTEXT_OVERRIDES (JSON) and OPENCLAUDE_CTX_<UPPER_MODEL> (int).",
+          "additionalProperties": { "type": "number" }
+        },
+        "openclaude.permissionMode": {
+          "type": "string",
+          "default": "acceptEdits",
+          "enum": ["default", "acceptEdits", "bypassPermissions", "plan"],
+          "enumDescriptions": [
+            "Prompt for permission on each tool use (requires manual approval)",
+            "Auto-approve file edits, prompt for other operations (recommended)",
+            "Auto-approve all operations without prompting",
+            "Read-only mode — no file modifications allowed"
+          ],
+          "description": "Permission mode for chat sessions. Controls which tool operations are auto-approved."
+        }
+      }
+    },
+    "themes": [
+      {
+        "label": "OpenClaude Terminal Black",
+        "uiTheme": "vs-dark",
+        "path": "./themes/OpenClaude-Terminal-Black.json"
+      }
+    ]
+  },
+  "scripts": {
+    "test": "node --test ./src/*.test.js ./src/chat/*.test.js",
+    "lint": "node scripts/lint.js",
+    "package": "npx @vscode/vsce package --no-dependencies"
+  },
+  "keywords": [
+    "openclaude",
+    "terminal",
+    "theme",
+    "cli",
+    "llm"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Gitlawb/openclaude"
+  },
+  "license": "MIT"
+}
