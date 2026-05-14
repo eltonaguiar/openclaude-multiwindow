@@ -27,6 +27,13 @@ function shortModelLabel(model) {
     'claude-opus-4-7-1m': 'Opus 4.7 1M',
     'claude-sonnet-4-6': 'Sonnet 4.6',
     'claude-haiku-4-5': 'Haiku 4.5',
+    'grok-4': 'Grok 4',
+    'grok-4.3': 'Grok 4.3',
+    'grok-3': 'Grok 3',
+    'deepseek-v4-pro': 'DS v4 Pro',
+    'deepseek-v4-flash': 'DS v4 Flash',
+    'mercury-2': 'Mercury 2',
+    'mercury-2-5b': 'Mercury 2 5B',
   };
   return map[model] || model;
 }
@@ -37,6 +44,7 @@ class ChatRegistry {
     this._chats = new Map(); // chatId -> { controller, title, model, sessionId, createdAt }
     this._order = [];
     this._activeId = null;
+    this._chatCounter = 0; // monotonic — never resets on close, avoids duplicate "Chat N"
     this._onDidChange = new vscode.EventEmitter();
     this.onDidChange = this._onDidChange.event;
   }
@@ -78,9 +86,10 @@ class ChatRegistry {
     }
     const id = makeChatId();
     const controller = new ChatController(this._sessionManager);
+    this._chatCounter += 1;
     const entry = {
       controller,
-      title: title || `Chat ${this._order.length + 1}`,
+      title: title || `Chat ${this._chatCounter}`,
       model: model || DEFAULT_MODEL,
       sessionId: sessionId || null,
       createdAt: Date.now(),
@@ -142,6 +151,7 @@ class ChatRegistry {
 
   serialize() {
     return {
+      chatCounter: this._chatCounter,
       chats: this._order
         .map(id => {
           const e = this._chats.get(id);
@@ -166,6 +176,7 @@ class ChatRegistry {
    */
   restore(snapshot) {
     if (!snapshot || !Array.isArray(snapshot.chats)) return;
+    if (typeof snapshot.chatCounter === 'number') this._chatCounter = snapshot.chatCounter;
     for (const c of snapshot.chats) {
       if (this._chats.size >= MAX_CHATS) break;
       const controller = new ChatController(this._sessionManager);

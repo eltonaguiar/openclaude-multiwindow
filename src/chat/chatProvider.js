@@ -10,6 +10,9 @@ const fs = require('fs');
 const { ProcessManager } = require('./processManager');
 const { toViewModel } = require('./messageParser');
 const { renderChatHtml } = require('./chatRenderer');
+const _pkgVersion = (() => { try { return require('../../package.json').version; } catch { return ''; } })();
+
+let _profileWriteLock = Promise.resolve();
 
 let _cachedCatalog = null;
 function loadProviderCatalog() {
@@ -27,7 +30,7 @@ function loadProviderCatalog() {
     return merged;
   } catch (err) {
     console.warn('[openclaude] failed to load provider catalog:', err && err.message);
-    _cachedCatalog = [];
+    // Don't cache the empty array — let the next call retry.
     return [];
   }
 }
@@ -38,6 +41,9 @@ try {
     if (e.affectsConfiguration('openclaude.modelCatalogExtras')) _cachedCatalog = null;
   });
 } catch { /* may run outside extension host during tests */ }
+const { ModelValidator } = require('./modelValidator');
+const { ThinkingGuard } = require('./thinkingGuard');
+const { ModelVettingStore } = require('./modelVettingStore');
 const { isAssistantMessage, isPartialMessage, isStreamEvent,
         isContentBlockDelta, isContentBlockStart, isMessageStart,
         isResultMessage, isControlRequest, isToolProgressMessage,
@@ -52,6 +58,66 @@ async function openFileInEditor(filePath) {
   } catch {
     vscode.window.showWarningMessage(`Could not open file: ${filePath}`);
   }
+}
+
+/** Build a model-id → provider lookup table from the catalog. */
+function buildModelProviderMap(catalog) {
+  const map = new Map();
+  for (const provider of catalog) {
+    for (const m of (provider.models || [])) {
+      if (m && m.id && !map.has(m.id)) {
+        map.set(m.id, provider);
+      }
+    }
+  }
+  return map;
+}
+
+/**
+ * Return extra env vars to inject for the given modelId.
+ * Sources (later wins):
+ *  1. catalog baseUrl → OPENAI_BASE_URL (gateway providers only)
+ *  2. openclaude.providerEnvOverrides[providerId] (full user control)
+ * Also sets CLAUDE_CODE_USE_OPENAI=1 automatically when a non-Anthropic
+ * provider is used so the shim is active without requiring a global setting.
+ */
+function resolveProviderEnv(modelId) {
+  if (!modelId || modelId === 'inherit') return {};
+  const catalog = loadProviderCatalog();
+  const modelMap = buildModelProviderMap(catalog);
+  // Exact match first, then prefix match (handles version-suffix variants like
+  // "grok-4.3-mini" when catalog only has "grok-4.3", or custom model ids
+  // that share a known prefix).
+  let provider = modelMap.get(modelId);
+  if (!provider) {
+    for (const [id, p] of modelMap) {
+      if (modelId.startsWith(id + '-') || modelId.startsWith(id + '.') || modelId.startsWith(id + ':')) {
+        provider = p;
+        break;
+      }
+    }
+  }
+  const env = {};
+
+  if (provider) {
+    // Auto-enable the OpenAI shim for any non-Anthropic provider.
+    if (provider.id !== 'anthropic-direct') {
+      env.CLAUDE_CODE_USE_OPENAI = '1';
+    }
+    // If the catalog carries a base URL (gateway providers), set it.
+    if (provider.baseUrl) {
+      env.OPENAI_BASE_URL = provider.baseUrl;
+    }
+  }
+
+  // User-configured overrides take final precedence.
+  const cfg = vscode.workspace.getConfiguration('openclaude');
+  const userOverrides = cfg.get('providerEnvOverrides', {}) || {};
+  if (provider && userOverrides[provider.id] && typeof userOverrides[provider.id] === 'object') {
+    Object.assign(env, userOverrides[provider.id]);
+  }
+
+  return env;
 }
 
 function getLaunchConfig() {
@@ -144,13 +210,37 @@ class ChatController {
     const { command, cwd, env, permissionMode } = getLaunchConfig();
 
     const effectiveModel = opts.model || this._model || null;
+    const resolvedModel = effectiveModel === 'inherit' ? null : effectiveModel;
+    // Merge per-provider env overrides so each chat tab uses the right
+    // OPENAI_BASE_URL + API key for its chosen model/provider.
+    const providerEnv = resolveProviderEnv(resolvedModel);
+
+    // Write a per-provider .openclaude-profile.json into cwd so the CLI's
+    // applyProfileEnvToProcessEnv() (which nukes all credential env vars
+    // before applying the profile) picks up the correct provider credentials
+    // for this tab's selected model, rather than always using the workspace
+    // default (e.g. DeepSeek) regardless of which model is selected.
+    if (cwd && Object.keys(providerEnv).length > 0) {
+      const profileObj = { profile: 'openai', env: {}, createdAt: new Date().toISOString() };
+      if (providerEnv.OPENAI_BASE_URL) profileObj.env.OPENAI_BASE_URL = providerEnv.OPENAI_BASE_URL;
+      if (providerEnv.OPENAI_API_KEY)  profileObj.env.OPENAI_API_KEY  = providerEnv.OPENAI_API_KEY;
+      if (providerEnv.CLAUDE_CODE_USE_OPENAI) profileObj.env.CLAUDE_CODE_USE_OPENAI = providerEnv.CLAUDE_CODE_USE_OPENAI;
+      if (resolvedModel) profileObj.env.OPENAI_MODEL = resolvedModel;
+      const profilePath = path.join(cwd, '.openclaude-profile.json');
+      const profileContent = JSON.stringify(profileObj, null, 2);
+      _profileWriteLock = _profileWriteLock
+        .then(() => fs.promises.writeFile(profilePath, profileContent, 'utf8'))
+        .catch(e => console.warn('[openclaude] could not write per-provider profile:', e && e.message));
+      await _profileWriteLock;
+    }
+
     this._process = new ProcessManager({
       command,
       cwd,
-      env,
+      env: { ...env, ...providerEnv },
       sessionId: opts.sessionId,
       continueSession: opts.continueSession || false,
-      model: effectiveModel === 'inherit' ? null : effectiveModel,
+      model: resolvedModel,
       permissionMode,
       extraArgs: opts.extraArgs || [],
     });
@@ -233,6 +323,8 @@ class ChatController {
       this._broadcast({ type: 'error', message: err.message });
     }
   }
+
+  refreshModelVetting() { try { const vs=new ModelVettingStore(context);const vd={};for(const m of vs.getVettedModels())vd[m]='verified';for(const m of vs.getBrokenModels())vd[m]='broken';for(const m of vs.getDisabledModels())vd[m]='disabled';this._broadcast({type:'model_vetting',data:vd});}catch(e){} }
 
   abort() {
     if (this._process) {
@@ -486,6 +578,17 @@ class ChatController {
         if (event.delta) {
           if (event.delta.type === 'text_delta' && event.delta.text) {
             this._accumulatedText += event.delta.text;
+            // DeepSeek thinking-mode protocol error: the CLI strips reasoning_content
+            // before sending the next turn, so the API rejects with 400. Intercept
+            // early so we can show an actionable message instead of raw JSON.
+            if (/reasoning_content.*thinking mode/i.test(this._accumulatedText)) {
+              this._broadcast({
+                type: 'provider_error',
+                code: 'reasoning_content',
+                message: 'DeepSeek thinking-mode error: the CLI does not re-send reasoning_content between turns.\n\nWorkaround: start a new chat, or switch to deepseek-v4-flash (no thinking mode).',
+              });
+              return;
+            }
             this._broadcast({ type: 'stream_delta', text: this._accumulatedText });
           } else if (event.delta.type === 'thinking_delta') {
             this._thinkingTokens += (event.delta.thinking || '').length;
@@ -506,7 +609,10 @@ class ChatController {
 
       case 'content_block_stop':
         if (this._currentBlockType === 'thinking') {
-          this._broadcast({ type: 'thinking_end' });
+          if (this._process && typeof this._process.endThinking === 'function') {
+              this._thinkingGuard.endThinking();
+            }
+            this._broadcast({ type: 'thinking_end' });
         }
         this._currentBlockType = null;
         break;
@@ -644,9 +750,104 @@ function attachChatMessageHandler({ webview, getController, registry, panelManag
       case 'webview_ready':
         try {
           webview.postMessage({ type: 'provider_catalog', providers: loadProviderCatalog() });
+          const ctxOvr = vscode.workspace.getConfiguration('openclaude').get('modelContextOverrides', {}) || {};
+          webview.postMessage({ type: 'context_overrides', overrides: ctxOvr });
         } catch { /* ignore */ }
         postBind && postBind();
         break;
+      case 'validate_models': {
+        try {
+          const catalog = loadProviderCatalog();
+          const validator = new ModelValidator(catalog);
+          const results = await validator.validateAll({
+            mode: msg.mode || 'free',
+            providerFilter: msg.providerFilter || null,
+            modelFilter: msg.modelFilter || null,
+            onProgress: (done, total, result) => {
+              webview.postMessage({ type: 'validation_progress', done, total, result });
+            },
+          });
+          webview.postMessage({ type: 'validation_complete', results });
+          // Sync vetting data to webview
+          try { const vs2 = new ModelVettingStore(context || {}); const vd = {}; for (const m of vs2.getVettedModels()) vd[m] = 'verified'; for (const m of vs2.getBrokenModels()) vd[m] = 'broken'; for (const m of vs2.getDisabledModels()) vd[m] = 'disabled'; webview.postMessage({ type: 'model_vetting', data: vd }); } catch(e) { /* non-critical */ }
+          // Persist results
+          try { const vs = new ModelVettingStore(context || {}); vs.storeValidationResults(results); } catch(e) { console.warn('Failed to persist validation', e); }
+        } catch (err) {
+          webview.postMessage({ type: 'error', message: 'Validation failed: ' + (err && err.message || String(err)) });
+        }
+        break;
+      }
+      case 'validate_single_model': {
+        try {
+          const catalog = loadProviderCatalog();
+          const validator = new ModelValidator(catalog);
+          const result = await validator.validateModel(msg.modelId, { mode: msg.mode || 'free' });
+          webview.postMessage({ type: 'single_validation_result', result });
+        } catch (err) {
+          webview.postMessage({ type: 'error', message: 'Validation failed: ' + (err && err.message || String(err)) });
+        }
+        break;
+      }
+      case 'export_models': {
+        try {
+          const catalog = loadProviderCatalog();
+          const exportJson = JSON.stringify({
+            exportedAt: new Date().toISOString(),
+            version: '1.0',
+            scope: msg.scope || 'all',
+            vetting: msg.vettingData || {},
+            models: catalog.map(p => ({
+              providerId: p.id,
+              label: p.label || p.id,
+              baseUrl: p.baseUrl || null,
+              models: (p.models || []).map(m => typeof m === 'string' ? { id: m } : { id: m.id || m }),
+            })),
+          }, null, 2);
+          webview.postMessage({ type: 'export_data', data: exportJson });
+        } catch (err) {
+          webview.postMessage({ type: 'error', message: 'Export failed: ' + (err && err.message || String(err)) });
+        }
+        break;
+      }
+      case 'reset_thinking': {
+        const c = getController();
+        if (c && typeof c.forceReset === 'function') c.forceReset();
+        break;
+      }
+      case 'queue_message': {
+        const c = getController();
+        if (c && typeof c.queueMessage === 'function') c.queueMessage(msg.text);
+        break;
+      }
+      case 'get_queued_messages': {
+        const c = getController();
+        if (c && typeof c.getQueuedMessages === 'function') {
+          const msgs = c.getQueuedMessages();
+          webview.postMessage({ type: 'queue_update', messages: msgs, count: msgs.length });
+        }
+        break;
+      }
+      case 'set_context_override': {
+        const model = msg.model;
+        const tokens = typeof msg.tokens === 'number' ? msg.tokens : 0;
+        if (!model) break;
+        try {
+          const cfg = vscode.workspace.getConfiguration('openclaude');
+          const current = cfg.get('modelContextOverrides', {}) || {};
+          const updated = { ...current };
+          if (tokens > 0) {
+            updated[model] = tokens;
+          } else {
+            delete updated[model];
+          }
+          await cfg.update('modelContextOverrides', updated, vscode.ConfigurationTarget.Global);
+          // Broadcast updated overrides back so all open webviews stay in sync.
+          webview.postMessage({ type: 'context_overrides', overrides: updated });
+        } catch (e) {
+          console.warn('[openclaude] failed to save context override:', e && e.message);
+        }
+        break;
+      }
     }
   });
 }
@@ -738,7 +939,7 @@ class OpenClaudeChatViewProvider {
 
   _getHtml() {
     const nonce = crypto.randomBytes(16).toString('hex');
-    return renderChatHtml({ nonce, platform: process.platform, multi: true });
+    return renderChatHtml({ nonce, platform: process.platform, multi: true, version: _pkgVersion });
   }
 
   _currentController() {
@@ -838,7 +1039,7 @@ class OpenClaudeChatPanelManager {
     });
 
     const nonce = crypto.randomBytes(16).toString('hex');
-    panel.webview.html = renderChatHtml({ nonce, platform: process.platform, multi: false });
+    panel.webview.html = renderChatHtml({ nonce, platform: process.platform, multi: false, version: _pkgVersion });
 
     attachChatMessageHandler({
       webview: panel.webview,

@@ -2,7 +2,7 @@
   "name": "openclaude-multiwindow",
   "displayName": "OpenClaude Multi-Window",
   "description": "OpenClaude with multi-chat command centre — multiple chats simultaneously, each with its own model, tabbed in the sidebar with open-in-new-tab support.",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "publisher": "devnull-bootloader",
   "engines": {
     "vscode": "^1.95.0"
@@ -12,20 +12,7 @@
     "Other"
   ],
   "activationEvents": [
-    "onStartupFinished",
-    "onCommand:openclaude.start",
-    "onCommand:openclaude.startInWorkspaceRoot",
-    "onCommand:openclaude.openDocs",
-    "onCommand:openclaude.openSetupDocs",
-    "onCommand:openclaude.openWorkspaceProfile",
-    "onCommand:openclaude.openControlCenter",
-    "onCommand:openclaude.newChat",
-    "onCommand:openclaude.openChat",
-    "onCommand:openclaude.openChatInNewTab",
-    "onCommand:openclaude.resumeSession",
-    "onCommand:openclaude.abortChat",
-    "onView:openclaude.controlCenter",
-    "onView:openclaude.chat"
+    "onStartupFinished"
   ],
   "main": "./src/extension.js",
   "files": [
@@ -95,6 +82,31 @@
         "command": "openclaude.abortChat",
         "title": "OpenClaude: Abort Generation",
         "category": "OpenClaude"
+      },
+      {
+        "command": "openclaude.validateModels",
+        "title": "Validate Models",
+        "category": "OpenClaude"
+      },
+      {
+        "command": "openclaude.exportModels",
+        "title": "Export Model Config",
+        "category": "OpenClaude"
+      },
+      {
+        "command": "openclaude.resetThinking",
+        "title": "Reset Thinking",
+        "category": "OpenClaude"
+      },
+      {
+        "command": "openclaude.openModelVetting",
+        "title": "Open Model Vetting",
+        "category": "OpenClaude"
+      },
+      {
+        "command": "openclaude.validateModelsDeep",
+        "title": "Validate Models (Deep)",
+        "category": "OpenClaude"
       }
     ],
     "viewsContainers": {
@@ -149,18 +161,35 @@
           "type": "array",
           "default": [],
           "description": "Extra providers/models to add to the per-tab model picker. Each entry: { id, label, baseUrl?, defaultModel?, models: [{id, label}] }. Merged after the bundled catalog (30 providers / 116 models extracted from upstream openclaude gateways + brands).",
-          "items": { "type": "object" }
+          "items": {
+            "type": "object"
+          }
         },
         "openclaude.modelContextOverrides": {
           "type": "object",
           "default": {},
           "description": "Per-model context-window overrides (in tokens) for unknown models. Silences the '[context] Warning: model … not in context window table' message and tells the CLI what window to use. Example: { \"grok-4-1-fast-non-reasoning\": 131072, \"my-local-llama\": 32768 }. Exposed to the CLI subprocess via env vars OPENCLAUDE_MODEL_CONTEXT_OVERRIDES (JSON) and OPENCLAUDE_CTX_<UPPER_MODEL> (int).",
-          "additionalProperties": { "type": "number" }
+          "additionalProperties": {
+            "type": "number"
+          }
+        },
+        "openclaude.providerEnvOverrides": {
+          "type": "object",
+          "default": {},
+          "description": "Per-provider environment variable overrides injected when a chat uses a model from that provider. Keyed by provider id (e.g. \"xai-direct\", \"groq\", \"openrouter\"). Common use: set OPENAI_BASE_URL + OPENAI_API_KEY per provider so multi-provider chats work simultaneously. Example: { \"xai-direct\": { \"OPENAI_BASE_URL\": \"https://api.x.ai/v1\", \"OPENAI_API_KEY\": \"xai-...\" }, \"qwen-direct\": { \"OPENAI_BASE_URL\": \"https://dashscope.aliyuncs.com/compatible-mode/v1\", \"OPENAI_API_KEY\": \"sk-...\" } }. The provider id for a model is shown in the model picker's group header.",
+          "additionalProperties": {
+            "type": "object"
+          }
         },
         "openclaude.permissionMode": {
           "type": "string",
           "default": "acceptEdits",
-          "enum": ["default", "acceptEdits", "bypassPermissions", "plan"],
+          "enum": [
+            "default",
+            "acceptEdits",
+            "bypassPermissions",
+            "plan"
+          ],
           "enumDescriptions": [
             "Prompt for permission on each tool use (requires manual approval)",
             "Auto-approve file edits, prompt for other operations (recommended)",
@@ -168,6 +197,21 @@
             "Read-only mode — no file modifications allowed"
           ],
           "description": "Permission mode for chat sessions. Controls which tool operations are auto-approved."
+        },
+        "openclaude.thinkingTimeoutMs": {
+          "type": "number",
+          "default": 120000,
+          "description": "Maximum time (ms) before thinking is considered stuck (default 2 min)"
+        },
+        "openclaude.autoValidateModels": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically validate all models on startup (free check)"
+        },
+        "openclaude.modelVettingData": {
+          "type": "object",
+          "default": {},
+          "description": "Model vetting data (vetted, broken, disabled lists). Managed via the model picker UI."
         }
       }
     },
@@ -182,6 +226,10 @@
   "scripts": {
     "test": "node --test ./src/*.test.js ./src/chat/*.test.js",
     "lint": "node scripts/lint.js",
+    "validate-providers": "node scripts/validate-providers.mjs",
+    "validate-providers:deep": "node scripts/validate-providers.mjs --deep",
+    "test-reasoning": "node scripts/test-reasoning.mjs",
+    "test-reasoning:multi": "node scripts/test-reasoning.mjs --multi",
     "package": "npx @vscode/vsce package --no-dependencies"
   },
   "keywords": [

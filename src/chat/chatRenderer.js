@@ -15,7 +15,7 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
-function renderChatHtml({ nonce, platform }) {
+function renderChatHtml({ nonce, platform, version = '' }) {
   const modKey = platform === 'darwin' ? 'Cmd' : 'Ctrl';
 
   return `<!DOCTYPE html>
@@ -101,6 +101,8 @@ function renderChatHtml({ nonce, platform }) {
     .header-btn.danger { border-color: var(--oc-critical); color: var(--oc-critical); }
     .header-btn.danger:hover { background: rgba(255,138,108,0.12); }
     #abortBtn { display: none; }
+    .ver-btn { opacity: 0.45; font-size: 10px; padding: 3px 6px; letter-spacing: 0.03em; }
+    .ver-btn:hover { opacity: 1; }
 
     /* ── Status bar ── */
     .status-bar {
@@ -645,6 +647,11 @@ function renderChatHtml({ nonce, platform }) {
     .model-custom-input:focus { border-color: var(--oc-accent-bright); }
     .model-dirty-badge { padding: 4px 14px 6px; font-size: 10px; color: var(--oc-warning); }
     .model-dirty-badge[hidden] { display: none; }
+    .model-ctx-footer { padding: 6px 10px 8px; border-top: 1px solid var(--oc-border-soft); display: flex; align-items: center; gap: 6px; }
+    .model-ctx-label { font-size: 10px; color: var(--oc-text-soft); white-space: nowrap; }
+    .model-ctx-input { flex: 1; min-width: 0; padding: 3px 6px; border: 1px solid var(--oc-border-soft); border-radius: 4px; background: var(--oc-bg); color: var(--oc-text); font-size: 11px; outline: none; font-family: inherit; }
+    .model-ctx-input:focus { border-color: var(--oc-accent-bright); }
+    .model-ctx-hint { font-size: 10px; color: var(--oc-text-soft); white-space: nowrap; }
   </style>
 </head>
 <body>
@@ -668,11 +675,17 @@ function renderChatHtml({ nonce, platform }) {
           <div class="model-option" data-model="inherit">CLI default</div>
         </div>
         <div class="model-dirty-badge" id="modelDirtyBadge" hidden>&#x21bb; applies on next message (model only updates on process restart)</div>
+        <div class="model-ctx-footer">
+          <span class="model-ctx-label">Context tokens:</span>
+          <input class="model-ctx-input" id="ctxInput" type="number" min="1024" max="2097152" step="1024" placeholder="auto" title="Override context window size for the selected model. Leave blank for CLI default." autocomplete="off" />
+          <span class="model-ctx-hint" id="ctxHint"></span>
+        </div>
       </div>
     </div>
     <button class="header-btn" id="historyBtn" title="Session history">History</button>
     <button class="header-btn" id="newChatBtn" title="New chat">+ New</button>
     <button class="header-btn danger" id="abortBtn" title="Abort generation">Stop</button>
+    <button class="header-btn ver-btn" id="verBtn" title="OpenClaude Multi-Window v${version} — multi-chat with per-tab model selection">v${version}</button>
   </div>
   <div class="status-bar">
     <span class="status-dot" id="statusDot"></span>
@@ -728,11 +741,14 @@ function renderChatHtml({ nonce, platform }) {
   const inputEl = document.getElementById('chatInput');
   const sendBtn = document.getElementById('sendBtn');
   const abortBtn = document.getElementById('abortBtn');
+      const forceResetBtn = document.getElementById('forceResetBtn');
   const newChatBtn = document.getElementById('newChatBtn');
   const historyBtn = document.getElementById('historyBtn');
   const statusDot = document.getElementById('statusDot');
   const statusText = document.getElementById('statusText');
   const statusUsage = document.getElementById('statusUsage');
+      const queueIndicator = document.getElementById('queueIndicator');
+      const queueCount = document.getElementById('queueCount');
   const typingIndicator = document.getElementById('typingIndicator');
   const sessionOverlay = document.getElementById('sessionOverlay');
   const closeSessionsBtn = document.getElementById('closeSessionsBtn');
@@ -778,8 +794,11 @@ function renderChatHtml({ nonce, platform }) {
     html = html.replace(/\\*\\*(.+?)\\*\\*/g, '<strong>$1</strong>');
     html = html.replace(/\\*(.+?)\\*/g, '<em>$1</em>');
 
-    // links
-    html = html.replace(/\\[([^\\]]+)\\]\\(([^)]+)\\)/g, '<a href="$2" title="$2">$1</a>');
+    // links — URL is sanitized to https/http/ftp/file only to prevent javascript: XSS
+    html = html.replace(/\\[([^\\]]+)\\]\\(([^)]+)\\)/g, (_, label, url) => {
+      const safe = /^(https?|ftp|file):\/\//i.test(url.trim()) ? url.trim() : '#';
+      return '<a href="' + escapeHtml(safe) + '" title="' + escapeHtml(url) + '" target="_blank" rel="noopener noreferrer">' + label + '</a>';
+    });
 
     // unordered lists (simple)
     html = html.replace(/^[\\-\\*] (.+)$/gm, '<li>$1</li>');
@@ -1325,6 +1344,37 @@ function renderChatHtml({ nonce, platform }) {
         statusText.textContent = 'Error: ' + (msg.message || 'Unknown error');
         break;
 
+      case 'provider_error': {
+        setStreaming(false);
+        finalizeAssistant();
+        statusDot.className = 'status-dot error';
+        statusText.textContent = 'Provider error';
+        const peCard = document.createElement('div');
+        peCard.className = 'perm-card';
+        peCard.style.cssText = 'border-color:var(--oc-critical);background:var(--oc-perm-bg);margin:4px 0;';
+        const peTitle = document.createElement('div');
+        peTitle.className = 'perm-title';
+        peTitle.style.color = 'var(--oc-critical)';
+        peTitle.textContent = 'Provider Error';
+        const peBody = document.createElement('div');
+        peBody.className = 'perm-body';
+        peBody.style.cssText = 'white-space:pre-wrap;font-size:12px;color:var(--oc-text-dim)';
+        peBody.textContent = msg.message || 'Unknown provider error';
+        const peActions = document.createElement('div');
+        peActions.style.marginTop = '8px';
+        const peBtn = document.createElement('button');
+        peBtn.className = 'perm-btn';
+        peBtn.textContent = 'Start New Chat';
+        peBtn.addEventListener('click', () => vscode.postMessage({ type: 'new_session' }));
+        peActions.appendChild(peBtn);
+        peCard.appendChild(peTitle);
+        peCard.appendChild(peBody);
+        peCard.appendChild(peActions);
+        messagesEl.appendChild(peCard);
+        scrollToBottom();
+        break;
+      }
+
       case 'session_list':
         renderSessionList(msg.sessions);
         break;
@@ -1343,6 +1393,15 @@ function renderChatHtml({ nonce, platform }) {
         break;
 
       case 'restore_messages':
+        // When switching tabs the host sends replace:true — clear existing DOM
+        // first so messages from the old chat don't bleed into the new one.
+        if (msg.replace) {
+          messagesEl.innerHTML = '';
+          if (welcomeEl) messagesEl.appendChild(welcomeEl);
+          currentAssistantEl = null;
+          currentTextEl = null;
+          setStreaming(false);
+        }
         hideWelcome();
         if (msg.messages) {
           for (const m of msg.messages) {
@@ -1414,6 +1473,7 @@ function renderChatHtml({ nonce, platform }) {
   let currentBindToken = 0;
   let currentChatId = null;
   let currentModel = 'inherit';
+  let modelVetting = {};
   let currentStreaming = false;
   let currentDirty = false;
   let panelMode = false;
@@ -1430,6 +1490,9 @@ function renderChatHtml({ nonce, platform }) {
   const modelDirtyBadge = document.getElementById('modelDirtyBadge');
   const modelSearch = document.getElementById('modelSearch');
   const modelList = document.getElementById('modelList');
+  const ctxInput = document.getElementById('ctxInput');
+  const ctxHint = document.getElementById('ctxHint');
+  let modelContextOverrides = {}; // model id → token count, from extension
   let resolvedModel = null;
   let providerCatalog = []; // [{id, label, baseUrl, defaultModel, models: [{id, label}]}]
 
@@ -1439,6 +1502,13 @@ function renderChatHtml({ nonce, platform }) {
     'claude-opus-4-7-1m': 'Opus 4.7 1M',
     'claude-sonnet-4-6': 'Sonnet 4.6',
     'claude-haiku-4-5': 'Haiku 4.5',
+    'grok-4': 'Grok 4',
+    'grok-4.3': 'Grok 4.3',
+    'grok-3': 'Grok 3',
+    'deepseek-v4-pro': 'DS v4 Pro',
+    'deepseek-v4-flash': 'DS v4 Flash',
+    'mercury-2': 'Mercury 2',
+    'mercury-2-5b': 'Mercury 2 5B',
   };
   function modelShortLabel(m) {
     if (!m || m === 'inherit') return 'CLI default';
@@ -1526,6 +1596,13 @@ function renderChatHtml({ nonce, platform }) {
     opts.forEach(el => {
       el.classList.toggle('active', el.dataset.model === currentModel);
     });
+    // Sync context override input with the currently selected model.
+    const activeModel = (currentModel && currentModel !== 'inherit') ? currentModel : (resolvedModel || '');
+    const savedCtx = activeModel ? (modelContextOverrides[activeModel] || '') : '';
+    if (document.activeElement !== ctxInput) {
+      ctxInput.value = savedCtx ? String(savedCtx) : '';
+    }
+    ctxHint.textContent = savedCtx ? (Math.round(savedCtx / 1024) + 'k') : '';
   }
 
   function setModelLocal(model) {
@@ -1590,6 +1667,15 @@ function renderChatHtml({ nonce, platform }) {
         }
         opt.addEventListener('click', () => setModelLocal(m.id));
         modelList.appendChild(opt);
+              // Add vetting badge
+              const modelVettingStatus = modelVetting[m.id];
+              if (modelVettingStatus) {
+                const badge = document.createElement('span');
+                badge.className = 'vetting-badge ' + modelVettingStatus;
+                badge.textContent = modelVettingStatus === 'verified' ? '✓' : modelVettingStatus === 'broken' ? '✗' : modelVettingStatus === 'disabled' ? 'off' : '?';
+                badge.title = 'Status: ' + modelVettingStatus;
+                opt.appendChild(badge);
+              }
         shown += 1;
       }
     }
@@ -1647,6 +1733,22 @@ function renderChatHtml({ nonce, platform }) {
     }
   });
 
+  // Context window override: save on blur or Enter, clear on empty.
+  function saveCtxOverride() {
+    const activeModel = (currentModel && currentModel !== 'inherit') ? currentModel : (resolvedModel || '');
+    if (!activeModel) return;
+    const raw = ctxInput.value.trim();
+    const tokens = raw ? parseInt(raw, 10) : 0;
+    vscode.postMessage({ type: 'set_context_override', model: activeModel, tokens: tokens || 0 });
+    ctxHint.textContent = tokens > 0 ? (Math.round(tokens / 1024) + 'k saved') : 'cleared';
+    setTimeout(() => { ctxHint.textContent = tokens > 0 ? (Math.round(tokens / 1024) + 'k') : ''; }, 1500);
+  }
+  ctxInput.addEventListener('blur', saveCtxOverride);
+  ctxInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); ctxInput.blur(); }
+    if (e.key === 'Escape') { ctxInput.value = ''; ctxInput.blur(); }
+  });
+
   window.addEventListener('message', (event) => {
     const msg = event.data;
     if (!msg) return;
@@ -1661,8 +1763,13 @@ function renderChatHtml({ nonce, platform }) {
     } else if (msg.type === 'model_state') {
       currentChatId = msg.chatId || null;
       currentModel = msg.model || 'inherit';
-      currentStreaming = !!msg.streaming;
       currentDirty = !!msg.dirty;
+      // Restore streaming indicator when switching back to a chat that is
+      // still generating — setStreaming updates the status dot + abort btn.
+      if (currentStreaming !== !!msg.streaming) {
+        currentStreaming = !!msg.streaming;
+        setStreaming(currentStreaming);
+      }
       updateModelUI();
     } else if (msg.type === 'model_changed') {
       currentModel = msg.model || 'inherit';
@@ -1670,6 +1777,9 @@ function renderChatHtml({ nonce, platform }) {
       updateModelUI();
     } else if (msg.type === 'provider_catalog') {
       providerCatalog = Array.isArray(msg.providers) ? msg.providers : [];
+    } else if (msg.type === 'context_overrides') {
+      modelContextOverrides = (msg.overrides && typeof msg.overrides === 'object') ? msg.overrides : {};
+      updateModelUI();
     }
   });
 

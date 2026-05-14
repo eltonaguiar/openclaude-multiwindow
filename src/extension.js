@@ -13,6 +13,8 @@ const {
 } = require('./state');
 const { buildControlCenterViewModel } = require('./presentation');
 const { ChatController, OpenClaudeChatViewProvider, OpenClaudeChatPanelManager } = require('./chat/chatProvider');
+const { ModelValidator } = require('./chat/modelValidator');
+const { ModelVettingStore } = require('./chat/modelVettingStore');
 const { ChatRegistry } = require('./chat/chatRegistry');
 const { SessionManager } = require('./chat/sessionManager');
 const { DiffContentProvider, SCHEME: DIFF_SCHEME } = require('./chat/diffController');
@@ -817,6 +819,102 @@ function renderControlCenterHtml(status, options = {}) {
     .footer-note {
       padding-top: 2px;
     }
+    /* Provider Health */
+    .provider-health-module {
+      margin-top: 2px;
+    }
+    .provider-health-summary {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+    .health-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      border: 1px solid var(--oc-border-soft);
+      background: rgba(255,255,255,0.02);
+    }
+    .health-verified { color: var(--oc-positive); border-color: rgba(232,184,107,0.3); }
+    .health-broken { color: var(--oc-critical); border-color: rgba(255,138,108,0.3); }
+    .health-unknown { color: var(--oc-text-soft); }
+    .health-time { color: var(--oc-text-dim); font-weight: 400; font-size: 10px; }
+    .provider-health-actions {
+      display: grid;
+      gap: 8px;
+      grid-template-columns: 1fr 1fr;
+      margin: 10px 0 6px;
+    }
+    .provider-results-table {
+      display: grid;
+      gap: 2px;
+      max-height: 300px;
+      overflow-y: auto;
+      font-size: 11px;
+    }
+    .provider-results-header {
+      display: grid;
+      grid-template-columns: 2fr 2fr 1fr 1fr;
+      gap: 6px;
+      padding: 6px 8px;
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--oc-text-soft);
+      border-bottom: 1px solid var(--oc-border-soft);
+    }
+    .provider-result-row {
+      display: grid;
+      grid-template-columns: 2fr 2fr 1fr 1fr;
+      gap: 6px;
+      padding: 6px 8px;
+      border-radius: 6px;
+      align-items: center;
+      border: 1px solid transparent;
+    }
+    .provider-result-row:hover {
+      background: rgba(255,255,255,0.02);
+    }
+    .provider-result-row.verified { border-left: 2px solid var(--oc-positive); }
+    .provider-result-row.broken { border-left: 2px solid var(--oc-critical); }
+    .provider-result-row.unknown { border-left: 2px solid var(--oc-text-soft); }
+    .status-chip {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .status-verified { background: rgba(232,184,107,0.15); color: var(--oc-positive); }
+    .status-broken { background: rgba(255,138,108,0.15); color: var(--oc-critical); }
+    .status-unknown { background: rgba(170,144,120,0.12); color: var(--oc-text-soft); }
+    .mini-btn {
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--oc-border-soft);
+      background: rgba(255,255,255,0.03);
+      color: var(--oc-text-dim);
+      font-size: 10px;
+      cursor: pointer;
+    }
+    .mini-btn:hover {
+      background: rgba(255,138,108,0.15);
+      border-color: var(--oc-critical);
+      color: var(--oc-critical);
+    }
+    @media (max-width: 720px) {
+      .provider-health-actions {
+        grid-template-columns: 1fr;
+      }
+    }
+
     @media (max-width: 720px) {
       body {
         padding: 12px;
@@ -862,6 +960,27 @@ function renderControlCenterHtml(status, options = {}) {
 
       <section class="modules" aria-label="Control center details">
         ${viewModel.detailSections.map(renderDetailSection).join('')}
+      </section>
+
+      <!-- Provider Health -->
+      <section class="detail-module provider-health-module" aria-labelledby="provider-health-title">
+        <h2 class="module-title" id="provider-health-title">Provider Health</h2>
+        <div class="provider-health-summary" id="providerHealthSummary">
+          <span class="health-badge health-unknown">No validation data yet</span>
+        </div>
+        <div class="provider-health-actions">
+          <button class="action-button secondary" id="runFreeCheck" type="button">
+            <span class="action-label">Run Free Check</span>
+            <span class="action-detail">Check provider /models endpoints (no token cost)</span>
+          </button>
+          <button class="action-button secondary" id="runDeepCheck" type="button">
+            <span class="action-label">Run Deep Check</span>
+            <span class="action-detail">1-token paid verification (~$0.02 total)</span>
+          </button>
+        </div>
+        <div class="provider-results-wrap" id="providerResultsWrap" style="display:none;">
+          <div class="provider-results-table" id="providerResultsTable"></div>
+        </div>
       </section>
 
       <section class="actions-layout" aria-label="Control center actions">
@@ -913,6 +1032,79 @@ function renderControlCenterHtml(status, options = {}) {
     if (profileButton) {
       profileButton.addEventListener('click', () => vscode.postMessage({ type: 'openProfile' }));
     }
+
+    // Provider Health buttons
+    const runFreeCheckBtn = document.getElementById('runFreeCheck');
+    if (runFreeCheckBtn) {
+      runFreeCheckBtn.addEventListener('click', () => vscode.postMessage({ type: 'runFreeCheck' }));
+    }
+    const runDeepCheckBtn = document.getElementById('runDeepCheck');
+    if (runDeepCheckBtn) {
+      runDeepCheckBtn.addEventListener('click', () => vscode.postMessage({ type: 'runDeepCheck' }));
+    }
+    // Listen for provider health data push from extension
+    window.addEventListener('message', (event) => {
+      const msg = event.data;
+      if (msg && msg.type === 'providerHealthData') {
+        renderProviderHealth(msg.data);
+      }
+    });
+    function renderProviderHealth(data) {
+      const summary = document.getElementById('providerHealthSummary');
+      const table = document.getElementById('providerResultsTable');
+      const wrap = document.getElementById('providerResultsWrap');
+      if (!summary || !table || !wrap) return;
+      if (!data || !data.hasResults) {
+        summary.innerHTML = '<span class="health-badge health-unknown">No validation data yet</span>';
+        wrap.style.display = 'none';
+        return;
+      }
+      const w = data.workingCount || 0;
+      const b = data.brokenCount || 0;
+      const u = data.unknownCount || 0;
+      const time = data.lastValidation ? new Date(data.lastValidation).toLocaleString() : '';
+      summary.innerHTML = [
+        w > 0 ? '<span class="health-badge health-verified">\u2713 ' + w + ' verified</span>' : '',
+        b > 0 ? '<span class="health-badge health-broken">\u2717 ' + b + ' broken</span>' : '',
+        u > 0 ? '<span class="health-badge health-unknown">? ' + u + ' unknown</span>' : '',
+        time ? '<span class="health-badge health-time">Last: ' + time + '</span>' : ''
+      ].filter(Boolean).join('');
+      if (data.results && data.results.length > 0) {
+        wrap.style.display = 'block';
+        table.innerHTML = [
+          '<div class="provider-results-header">',
+          '<span>Provider</span>',
+          '<span>Model</span>',
+          '<span>Status</span>',
+          '<span></span>',
+          '</div>',
+          ...data.results.slice(0, 30).map(function(r) {
+            return '<div class="provider-result-row ' + r.status + '">' +
+              '<span>' + esc(r.providerLabel || r.providerId) + '</span>' +
+              '<span>' + esc(r.modelId) + '</span>' +
+              '<span><span class="status-chip status-' + r.status + '">' + r.status + '</span></span>' +
+              '<span>' +
+                (r.status === 'broken' ? '<button class="mini-btn disable-provider-btn" data-provider="' + escAttr(r.providerId) + '" data-model="' + escAttr(r.modelId) + '">Disable</button>' : '') +
+              '</span>' +
+            '</div>';
+          })
+        ].join('');
+        table.querySelectorAll('.disable-provider-btn').forEach(function(btn) {
+          btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            vscode.postMessage({ type: 'disableProvider', providerId: btn.dataset.provider, modelId: btn.dataset.model });
+          });
+        });
+      } else {
+        wrap.style.display = 'none';
+      }
+    }
+    function esc(s) {
+      return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+    function escAttr(s) {
+      return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+    }
   </script>
 </body>
 </html>`;
@@ -953,6 +1145,18 @@ class OpenClaudeControlCenterProvider {
         case 'commands':
           await vscode.commands.executeCommand('workbench.action.showCommands');
           break;
+        case 'runFreeCheck':
+          await vscode.commands.executeCommand('openclaude.validateModels');
+          return;
+        case 'runDeepCheck':
+          await vscode.commands.executeCommand('openclaude.validateModelsDeep');
+          return;
+        case 'disableProvider':
+          if (message && message.modelId) {
+            modelVettingStore.disable(message.modelId);
+            await vscode.window.showInformationMessage(`Disabled ${message.modelId}. Run "Validate Models" to re-check.`);
+          }
+          break;
         case 'refresh':
         default:
           break;
@@ -971,6 +1175,31 @@ class OpenClaudeControlCenterProvider {
 
     try {
       const status = await collectControlCenterState();
+      // Push provider health data after the webview loads
+      if (modelVettingStore) {
+        setTimeout(() => {
+          try {
+            if (!this.webviewView) return;
+            const results = modelVettingStore.getLastValidationResults();
+            const phData = {
+              lastValidation: modelVettingStore.getLastValidationTime(),
+              workingCount: results.filter(r => r.status === 'verified').length,
+              brokenCount: results.filter(r => r.status === 'broken').length,
+              unknownCount: results.length - results.filter(r => r.status === 'verified').length - results.filter(r => r.status === 'broken').length,
+              hasResults: results.length > 0,
+              results: results.map(r => ({
+                providerId: r.providerId,
+                providerLabel: (providerCatalog || []).find(p => p.id === r.providerId)?.label || r.providerId,
+                modelId: r.modelId,
+                status: r.status,
+                details: r.details || '',
+                method: r.method || 'free',
+              })),
+            };
+            this.webviewView.webview.postMessage({ type: 'providerHealthData', data: phData });
+          } catch (e) { /* ignore postMessage errors */ }
+        }, 80);
+      }
       this.webviewView.webview.html = this.getHtml(status);
     } catch (error) {
       this.webviewView.webview.html = this.getErrorHtml(error);
@@ -1229,6 +1458,101 @@ function activate(context) {
     if (c) c.abort();
   });
 
+  // ── Model vetting & provider validation ──
+  const providerCatalog = require('./chat/providerCatalog.json');
+  const modelVettingStore = new ModelVettingStore(context);
+  const modelValidator = new ModelValidator(providerCatalog);
+
+  const validateModelsCommand = vscode.commands.registerCommand('openclaude.validateModels', async () => {
+    try {
+      await vscode.window.withProgress({
+        location: vscode.ProgressLocation.Notification,
+        title: 'Validating providers (free check)...',
+        cancellable: true,
+      }, async (progress, token) => {
+        const results = await modelValidator.validateAll({
+          mode: 'free',
+          onProgress: (done, total) => {
+            if (token.isCancellationRequested) return;
+            progress.report({ message: `${done}/${total} providers` });
+          },
+        });
+        if (token.isCancellationRequested) return;
+        modelVettingStore.storeValidationResults(results);
+        const working = results.filter(r => r.status === 'verified').length;
+        const broken = results.filter(r => r.status === 'broken').length;
+        const unknown = results.length - working - broken;
+        await vscode.window.showInformationMessage(
+          `Provider check complete: ${working} verified, ${broken} broken, ${unknown} unknown`
+        );
+      });
+    } catch (err) {
+      await vscode.window.showErrorMessage(`Validation failed: ${err.message}`);
+    }
+    refreshProvider();
+  });
+
+  const validateModelsDeepCommand = vscode.commands.registerCommand('openclaude.validateModelsDeep', async () => {
+    const confirm = await vscode.window.showWarningMessage(
+      'Deep validation sends a 1-token completion to each configured provider. Estimated total cost: <$0.02. Continue?',
+      { modal: true },
+      'Continue',
+    );
+    if (confirm !== 'Continue') return;
+
+    try {
+      await vscode.window.withProgress({
+        location: vscode.ProgressLocation.Notification,
+        title: 'Validating providers (deep paid check)...',
+        cancellable: true,
+      }, async (progress, token) => {
+        const results = await modelValidator.validateAll({
+          mode: 'paid',
+          onProgress: (done, total, last) => {
+            if (token.isCancellationRequested) return;
+            progress.report({ message: `${done}/${total} \u2014 last: ${last.modelId} (${last.status})` });
+          },
+        });
+        if (token.isCancellationRequested) return;
+        modelVettingStore.storeValidationResults(results);
+        const working = results.filter(r => r.status === 'verified').length;
+        const broken = results.filter(r => r.status === 'broken').length;
+        const tokUsed = results.reduce((sum, r) => sum + (r.tokensUsed || 0), 0);
+        await vscode.window.showInformationMessage(
+          `Deep check complete: ${working} verified, ${broken} broken \u00b7 ${tokUsed} tokens consumed`
+        );
+      });
+    } catch (err) {
+      await vscode.window.showErrorMessage(`Deep validation failed: ${err.message}`);
+    }
+    refreshProvider();
+  });
+
+  const exportModelsCommand = vscode.commands.registerCommand('openclaude.exportModels', async () => {
+    const exported = modelVettingStore.exportConfig({
+      catalog: providerCatalog,
+      includeApiKeys: false,
+      scope: 'all',
+    });
+    const doc = await vscode.workspace.openTextDocument({ content: exported, language: 'json' });
+    await vscode.window.showTextDocument(doc, { preview: true });
+  });
+
+  const resetThinkingCommand = vscode.commands.registerCommand('openclaude.resetThinking', async () => {
+    try {
+      const { ThinkingGuard } = require('./chat/thinkingGuard');
+      ThinkingGuard.reset(context);
+      await vscode.window.showInformationMessage('Thinking guard state has been reset.');
+    } catch (err) {
+      await vscode.window.showErrorMessage(`Reset failed: ${err.message}`);
+    }
+    refreshProvider();
+  });
+
+  const openModelVettingCommand = vscode.commands.registerCommand('openclaude.openModelVetting', async () => {
+    await vscode.commands.executeCommand('workbench.view.extension.openclaude');
+  });
+
   // ── Register providers ──
   const controlCenterProviderReg = vscode.window.registerWebviewViewProvider(
     'openclaude.controlCenter',
@@ -1258,6 +1582,11 @@ function activate(context) {
     openChatInNewTabCommand,
     resumeSessionCommand,
     abortChatCommand,
+    validateModelsCommand,
+    validateModelsDeepCommand,
+    exportModelsCommand,
+    resetThinkingCommand,
+    openModelVettingCommand,
     chatViewProviderReg,
     registryPersistSub,
     statusBarSub,

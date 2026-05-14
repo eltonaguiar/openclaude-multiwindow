@@ -41,6 +41,9 @@ class ProcessManager {
     this._process = null;
     this._buffer = '';
     this._disposed = false;
+    this._thinkingTimeoutMs = opts.thinkingTimeoutMs || 120000;
+    this._thinkingSince = null;
+    this._thinkingTimer = null;
 
     this._onMessageEmitter = new vscode.EventEmitter();
     this._onErrorEmitter = new vscode.EventEmitter();
@@ -51,7 +54,9 @@ class ProcessManager {
   }
 
   get running() {
-    return this._process !== null && !this._process.killed;
+    // exitCode is null while the process is still alive; it's set (int or null≠null)
+    // on exit before the 'close' event clears _process.
+    return this._process !== null && this._process.exitCode === null && !this._process.killed;
   }
 
   get sessionId() {
@@ -88,9 +93,10 @@ class ProcessManager {
 
     if (isWin) {
       // On Windows, npm global installs create .cmd shims that spawn()
-      // cannot find without a shell.  Build one command string so the
-      // deprecation warning about unsanitised args does not fire.
-      const cmdLine = [this._command, ...args].join(' ');
+      // cannot find without a shell. Quote each arg to avoid injection
+      // via model names or other user-supplied strings that contain spaces.
+      const quoteArg = (a) => /[ \t"\\]/.test(a) ? '"' + a.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"' : a;
+      const cmdLine = [this._command, ...args].map(quoteArg).join(' ');
       this._process = spawn(cmdLine, [], {
         cwd: this._cwd,
         env: spawnEnv,
@@ -156,6 +162,12 @@ class ProcessManager {
         this._onMessageEmitter.fire({ type: 'status', content: t.replace(/^Error:\s*/i, '') });
         continue;
       }
+      // DeepSeek extended-thinking: reasoning_content must be passed back.
+      // The CLI sometimes strips it; surface as a status message instead of a red toast.
+      if (/reasoning_content.*thinking mode/i.test(t) || /thinking mode.*reasoning_content/i.test(t)) {
+        this._onMessageEmitter.fire({ type: 'status', content: '[provider] Extended thinking context error — start a new chat to reset.' });
+        continue;
+      }
       this._onErrorEmitter.fire(new Error(t));
     }
   }
@@ -200,6 +212,7 @@ class ProcessManager {
     this.kill();
     this._onMessageEmitter.dispose();
     this._onErrorEmitter.dispose();
+    if (this._thinkingTimer) { clearTimeout(this._thinkingTimer); this._thinkingTimer = null; }
     this._onExitEmitter.dispose();
   }
 }

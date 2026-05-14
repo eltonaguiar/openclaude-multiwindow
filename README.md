@@ -14,7 +14,7 @@ VS Code extension forked from [`Gitlawb/openclaude`](https://github.com/Gitlawb/
 ## Install
 
 ```powershell
-code --install-extension openclaude-multiwindow-0.4.0.vsix
+code --install-extension openclaude-multiwindow-0.4.3.vsix
 ```
 
 Then **Developer: Reload Window**, open the OpenClaude activity bar.
@@ -28,6 +28,7 @@ Then **Developer: Reload Window**, open the OpenClaude activity bar.
 | `openclaude.permissionMode` | `default` / `acceptEdits` / `bypassPermissions` / `plan`. |
 | `openclaude.modelContextOverrides` | `{ "<model-id>": <tokens> }` — silences `[context] Warning:` for unknown models AND exposes the size to the CLI via `OPENCLAUDE_CTX_<UPPER_MODEL>` + `OPENCLAUDE_MODEL_CONTEXT_OVERRIDES` env vars. |
 | `openclaude.modelCatalogExtras` | Append your own providers/models to the picker. Each entry: `{ id, label, baseUrl?, defaultModel?, models: [{id, label}] }`. |
+| `openclaude.providerEnvOverrides` | Per-provider env vars injected when a chat uses a model from that provider. **Required for true multi-provider support.** Key = provider id (shown in the picker's group header). Example: `{ "xai-direct": { "OPENAI_BASE_URL": "https://api.x.ai/v1", "OPENAI_API_KEY": "xai-..." }, "groq": { "OPENAI_API_KEY": "gsk_..." } }`. Gateway providers (Groq, OpenRouter, Together, …) get their `OPENAI_BASE_URL` auto-set from the catalog; you only need to supply the API key. |
 
 ## Commands
 
@@ -71,6 +72,17 @@ To smoke-test without an API key, point the extension at the bundled mock:
 ## Credit
 
 Built on [`Gitlawb/openclaude`](https://github.com/Gitlawb/openclaude). The provider catalog under `src/chat/providerCatalog.json` is extracted verbatim from upstream's `src/integrations/gateways/*.ts` and `src/integrations/brands/*.ts`.
+
+## Changelog
+
+### v0.4.3
+- Fix message mixing on tab switch (clear DOM on replace restore); restore streaming indicator when switching back to active chat; fix duplicate "Chat N" tab naming with monotonic counter.
+
+### v0.4.2
+- Profile routing fix: writes per-provider `.openclaude-profile.json` before spawn to bypass CLI profile clobber; Inception/Mercury provider added; base URLs added for 8 direct providers; version badge in UI header; prefix model-ID matching; catalog error handling improved.
+
+### v0.4.1
+- Multi-provider support via `openclaude.providerEnvOverrides` — per-tab `OPENAI_BASE_URL`/`API_KEY` injection.
 
 ## License
 

@@ -338,7 +338,7 @@
   {
     "id": "deepseek-direct",
     "label": "DeepSeek (direct)",
-    "baseUrl": null,
+    "baseUrl": "https://api.deepseek.com/v1",
     "defaultModel": "deepseek-chat",
     "models": [
       {
@@ -362,7 +362,7 @@
   {
     "id": "glm-direct",
     "label": "GLM / Zhipu",
-    "baseUrl": null,
+    "baseUrl": "https://open.bigmodel.cn/api/paas/v4",
     "defaultModel": "GLM-5.1",
     "models": [
       {
@@ -410,7 +410,7 @@
   {
     "id": "kimi-direct",
     "label": "Moonshot Kimi (direct)",
-    "baseUrl": null,
+    "baseUrl": "https://api.moonshot.cn/v1",
     "defaultModel": "kimi-for-coding",
     "models": [
       {
@@ -522,7 +522,7 @@
   {
     "id": "mistral-direct",
     "label": "Mistral (direct)",
-    "baseUrl": null,
+    "baseUrl": "https://api.mistral.ai/v1",
     "defaultModel": "mistral-large-latest",
     "models": [
       {
@@ -558,7 +558,7 @@
   {
     "id": "qwen-direct",
     "label": "Qwen",
-    "baseUrl": null,
+    "baseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
     "defaultModel": "qwen3.6-plus",
     "models": [
       {
@@ -590,7 +590,7 @@
   {
     "id": "xai-direct",
     "label": "xAI Grok",
-    "baseUrl": null,
+    "baseUrl": "https://api.x.ai/v1",
     "defaultModel": "grok-4.3",
     "models": [
       {
@@ -610,7 +610,7 @@
   {
     "id": "minimax",
     "label": "MiniMax",
-    "baseUrl": null,
+    "baseUrl": "https://api.minimax.chat/v1",
     "defaultModel": "minimax-m2",
     "models": [
       {
@@ -662,7 +662,7 @@
   {
     "id": "nemotron",
     "label": "NVIDIA Nemotron",
-    "baseUrl": null,
+    "baseUrl": "https://integrate.api.nvidia.com/v1",
     "defaultModel": "nvidia/llama-3.1-nemotron-70b-instruct",
     "models": [
       {
@@ -674,7 +674,7 @@
   {
     "id": "xiaomi-mimo",
     "label": "Xiaomi MiMo",
-    "baseUrl": null,
+    "baseUrl": "https://api.mimo.xiaomi.com/v1",
     "defaultModel": "mimo-v2.5-pro",
     "models": [
       {
@@ -696,6 +696,38 @@
       {
         "id": "mimo-v2-flash",
         "label": "mimo-v2-flash"
+      }
+    ]
+  },
+  {
+    "id": "inception-direct",
+    "label": "Inception (Mercury)",
+    "baseUrl": "https://api.inceptionlabs.ai/v1",
+    "defaultModel": "mercury-2",
+    "models": [
+      {
+        "id": "mercury-2",
+        "label": "Mercury 2"
+      },
+      {
+        "id": "mercury-2-5b",
+        "label": "Mercury 2 (5B)"
+      },
+      {
+        "id": "mercury-coder",
+        "label": "Mercury Coder"
+      },
+      {
+        "id": "mercury-edit-2",
+        "label": "Mercury Edit 2"
+      },
+      {
+        "id": "mercury-edit",
+        "label": "Mercury Edit"
+      },
+      {
+        "id": "mercury",
+        "label": "Mercury (Legacy)"
       }
     ]
   }
