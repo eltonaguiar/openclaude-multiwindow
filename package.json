@@ -2,7 +2,7 @@
   "name": "openclaude-multiwindow",
   "displayName": "OpenClaude Multi-Window",
   "description": "OpenClaude with multi-chat command centre — multiple chats simultaneously, each with its own model, tabbed in the sidebar with open-in-new-tab support.",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "publisher": "devnull-bootloader",
   "engines": {
     "vscode": "^1.95.0"

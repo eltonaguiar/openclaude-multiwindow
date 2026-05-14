@@ -995,3 +995,189 @@ test('webview disableProvider handler gracefully handles missing modelId and nul
     'should NOT crash on undefined message');
 });
 
+
+test('webview launch handler resolves (wiring test)', async () => {
+  const { OpenClaudeControlCenterProvider, showErrorCalls, createTerminalCalls } = loadExtensionWithFullSpies();
+  const provider = new OpenClaudeControlCenterProvider();
+  const handler = setupWebviewHandler(provider);
+
+  showErrorCalls.length = 0;
+  createTerminalCalls.length = 0;
+  await handler({ type: 'launch' });
+
+  // launchOpenClaude either shows an error (CLI not found) or creates a terminal (CLI found).
+  // Verify at least one path was taken — proves the handler case is wired correctly.
+  const tookAction = showErrorCalls.length > 0 || createTerminalCalls.length > 0;
+  assert.ok(tookAction, 'launch handler should either show error or create terminal');
+});
+
+test('webview launchRoot handler resolves (wiring test)', async () => {
+  const { OpenClaudeControlCenterProvider, showErrorCalls, showWarningCalls, createTerminalCalls } = loadExtensionWithFullSpies();
+  const provider = new OpenClaudeControlCenterProvider();
+  const handler = setupWebviewHandler(provider);
+
+  showErrorCalls.length = 0;
+  showWarningCalls.length = 0;
+  createTerminalCalls.length = 0;
+  await handler({ type: 'launchRoot' });
+
+  // launchRoot either shows a warning (no workspace), error (CLI not found),
+  // or creates a terminal (CLI found). Verify at least one path was taken.
+  const tookAction = showErrorCalls.length > 0 || showWarningCalls.length > 0 || createTerminalCalls.length > 0;
+  assert.ok(tookAction, 'launchRoot handler should take some action (warn/error/terminal)');
+});
+
+test('webview openProfile handler shows info when no profile found', async () => {
+  const { OpenClaudeControlCenterProvider, showInfoCalls, showWarningCalls } = loadExtensionWithFullSpies();
+  const provider = new OpenClaudeControlCenterProvider();
+  const handler = setupWebviewHandler(provider);
+
+  showInfoCalls.length = 0;
+  showWarningCalls.length = 0;
+  await handler({ type: 'openProfile' });
+
+  // openWorkspaceProfile will fail to find a profile file and show either
+  // an info or warning message. Either is valid — verify at least one fired.
+  const totalCalls = showInfoCalls.length + showWarningCalls.length;
+  assert.ok(totalCalls >= 1, 'should show info or warning when no profile is found');
+});
+
+test('webview repo handler opens external URL for repository', async () => {
+  const { OpenClaudeControlCenterProvider, openExternalCalls } = loadExtensionWithFullSpies();
+  const provider = new OpenClaudeControlCenterProvider();
+  const handler = setupWebviewHandler(provider);
+
+  openExternalCalls.length = 0;
+  await handler({ type: 'repo' });
+
+  assert.equal(openExternalCalls.length, 1, 'should call openExternal once');
+  assert.equal(openExternalCalls[0], 'https://github.com/Gitlawb/openclaude',
+    'should open the OpenClaude repository URL');
+});
+
+test('webview setup handler opens external URL for setup guide', async () => {
+  const { OpenClaudeControlCenterProvider, openExternalCalls } = loadExtensionWithFullSpies();
+  const provider = new OpenClaudeControlCenterProvider();
+  const handler = setupWebviewHandler(provider);
+
+  openExternalCalls.length = 0;
+  await handler({ type: 'setup' });
+
+  assert.equal(openExternalCalls.length, 1, 'should call openExternal once');
+  assert.equal(openExternalCalls[0], 'https://github.com/Gitlawb/openclaude/blob/main/README.md#quick-start',
+    'should open the setup guide URL');
+});
+
+test('webview commands handler delegates to workbench.action.showCommands', async () => {
+  const { OpenClaudeControlCenterProvider, executeCommandCalls } = loadExtensionWithFullSpies();
+  const provider = new OpenClaudeControlCenterProvider();
+  const handler = setupWebviewHandler(provider);
+
+  executeCommandCalls.length = 0;
+  await handler({ type: 'commands' });
+
+  assert.equal(executeCommandCalls.length, 1, 'should call executeCommand once');
+  assert.equal(executeCommandCalls[0].cmd, 'workbench.action.showCommands',
+    'should delegate to workbench showCommands action');
+});
+
+test('webview refresh handler calls provider.refresh()', async () => {
+  const { OpenClaudeControlCenterProvider } = loadExtensionWithFullSpies();
+  const provider = new OpenClaudeControlCenterProvider();
+  const handler = setupWebviewHandler(provider);
+
+  // Replace the stub with a spy that tracks calls
+  let refreshCalled = false;
+  provider.refresh = async () => { refreshCalled = true; };
+
+  await handler({ type: 'refresh' });
+
+  assert.ok(refreshCalled, 'refresh handler should call provider.refresh()');
+});
+
+/**
+ * Extended version of loadExtensionWithSpies that also tracks
+ * vscode.env.openExternal, vscode.window.showErrorMessage,
+ * vscode.window.showWarningMessage, and vscode.window.createTerminal calls.
+ *
+ * Shares the core mock shape with loadExtensionWithSpies() via
+ * createBaseVscodeMock() to keep them in sync.
+ */
+function createBaseVscodeMock(spies) {
+  return {
+    workspace: {
+      workspaceFolders: [],
+      getConfiguration: () => ({
+        get: (_key, fallback) => fallback,
+      }),
+      getWorkspaceFolder: () => null,
+    },
+    window: {
+      activeTextEditor: null,
+      createWebviewPanel: () => ({}),
+      registerWebviewViewProvider: () => ({ dispose() {} }),
+      showInformationMessage: async (msg) => {
+        (spies.showInfoCalls || []).push(msg);
+        return undefined;
+      },
+      showErrorMessage: async (msg, ...actions) => {
+        (spies.showErrorCalls || []).push({ msg, actions });
+        return undefined;
+      },
+      showWarningMessage: async (msg) => {
+        (spies.showWarningCalls || []).push(msg);
+        return undefined;
+      },
+      createTerminal: (opts) => {
+        (spies.createTerminalCalls || []).push(opts);
+        return { show() {}, sendText() {}, dispose() {} };
+      },
+    },
+    env: {
+      openExternal: async (uri) => {
+        (spies.openExternalCalls || []).push(uri);
+        return true;
+      },
+    },
+    commands: {
+      registerCommand: () => ({ dispose() {} }),
+      executeCommand: async (cmd, ...args) => {
+        (spies.executeCommandCalls || []).push({ cmd, args });
+      },
+    },
+    Uri: { parse: value => value, file: value => value },
+    ViewColumn: { Active: 1 },
+  };
+}
+
+function loadExtensionWithFullSpies() {
+  const extensionPath = require.resolve('./extension');
+  delete require.cache[extensionPath];
+
+  const executeCommandCalls = [];
+  const showInfoCalls = [];
+  const showErrorCalls = [];
+  const showWarningCalls = [];
+  const openExternalCalls = [];
+  const createTerminalCalls = [];
+
+  mock.module('vscode', () => createBaseVscodeMock({
+    executeCommandCalls,
+    showInfoCalls,
+    showErrorCalls,
+    showWarningCalls,
+    openExternalCalls,
+    createTerminalCalls,
+  }));
+
+  const ext = require('./extension');
+  return {
+    ...ext,
+    executeCommandCalls,
+    showInfoCalls,
+    showErrorCalls,
+    showWarningCalls,
+    openExternalCalls,
+    createTerminalCalls,
+  };
+}
