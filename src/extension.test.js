@@ -254,6 +254,36 @@ test('renderControlCenterHtml escapes hostile text and title values', () => {
 });
 
 // ──────────────────────────────────────────────
+
+test('renderControlCenterHtml includes Provider Health HTML elements for dynamic rendering', () => {
+  const { renderControlCenterHtml } = loadExtension();
+  const html = renderControlCenterHtml(createStatus(), { nonce: 'test-nonce', platform: 'win32' });
+
+  // Provider Health CSS styles present
+  assert.ok(html.includes('.provider-health-module'), 'provider-health-module CSS class');
+  assert.ok(html.includes('.health-verified'), 'health-verified CSS class');
+  assert.ok(html.includes('.health-broken'), 'health-broken CSS class');
+  assert.ok(html.includes('.provider-health-actions'), 'provider-health-actions CSS class');
+
+  // Provider Health section label
+  assert.ok(html.includes('Provider Health'), 'Provider Health heading');
+
+  // DOM elements that renderProviderHealth populates via getElementById
+  assert.ok(html.includes('id="providerHealthSummary"'), 'providerHealthSummary element');
+  assert.ok(html.includes('id="providerResultsTable"'), 'providerResultsTable element');
+  assert.ok(html.includes('id="providerResultsWrap"'), 'providerResultsWrap element');
+
+  // Action buttons for free/deep checks
+  assert.ok(html.includes('id="runFreeCheck"'), 'runFreeCheck button');
+  assert.ok(html.includes('id="runDeepCheck"'), 'runDeepCheck button');
+  assert.ok(html.includes('Run Free Check'), 'Run Free Check label');
+  assert.ok(html.includes('Run Deep Check'), 'Run Deep Check label');
+
+  // renderProviderHealth JS function exists for dynamic updates
+  assert.ok(html.includes('function renderProviderHealth'), 'renderProviderHealth function');
+  });
+
+
 // ──────────────────────────────────────────────
 // ModelVettingStore unit tests
 // ──────────────────────────────────────────────
